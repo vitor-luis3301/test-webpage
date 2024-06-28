@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Player Line Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        canvas {
+            border: 2px solid white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        #gameInfo {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        .button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        #aiToggle {
+            background-color: #3498db;
+        }
+        #aiToggle:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Two-Player Line Game</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="gameInfo"></div>
+    <button id="restartButton" class="button" style="display: none;">Restart Game</button>
+    <button id="aiToggle" class="button">Toggle AI Player A</button>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameInfo = document.getElementById('gameInfo');
+        const restartButton = document.getElementById('restartButton');
+        const aiToggle = document.getElementById('aiToggle');
+
+        let linePosition = canvas.width / 2;
+        let isMoving = false;
+        let moveDirection = 0;
+        let gameOver = false;
+        let winner = '';
+        const moveSpeed = 3;
+        let isAIControlled = false;
+        let aiTimeoutId = null;
+        let gameStarted = false;
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const gradientA = ctx.createLinearGradient(0, 0, linePosition, 0);
+            gradientA.addColorStop(0, "rgba(255, 87, 51, 0.7)");
+            gradientA.addColorStop(1, "rgba(255, 87, 51, 0.3)");
+            ctx.fillStyle = gradientA;
+            ctx.fillRect(0, 0, linePosition, canvas.height);
+
+            const gradientL = ctx.createLinearGradient(linePosition, 0, canvas.width, 0);
+            gradientL.addColorStop(0, "rgba(51, 153, 255, 0.3)");
+            gradientL.addColorStop(1, "rgba(51, 153, 255, 0.7)");
+            ctx.fillStyle = gradientL;
+            ctx.fillRect(linePosition, 0, canvas.width - linePosition, canvas.height);
+
+            ctx.beginPath();
+            ctx.moveTo(linePosition, 0);
+            ctx.lineTo(linePosition, canvas.height);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 32px Arial';
+            ctx.fillText(isAIControlled ? 'AI' : 'A', 20, 50);
+            ctx.fillText('L', canvas.width - 40, 50);
+
+            if (gameOver) {
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${winner} Wins!`, canvas.width / 2, canvas.height / 2);
+                restartButton.style.display = 'block';
+            }
+        }
+
+        function startMoving() {
+            if (!isMoving && !gameOver) {
+                isMoving = true;
+                moveDirection = Math.random() > 0.5 ? moveSpeed : -moveSpeed;
+                moveLine();
+                updateGameInfo();
+                if (isAIControlled && moveDirection < 0) {
+                    aiMove();
+                }
+            }
+        }
+
+        function moveLine() {
+            if (isMoving) {
+                linePosition += moveDirection;
+                
+                if (linePosition <= 0) {
+                    gameOver = true;
+                    winner = 'L';
+                } else if (linePosition >= canvas.width) {
+                    gameOver = true;
+                    winner = isAIControlled ? 'AI' : 'A';
+                }
+
+                drawGame();
+
+                if (!gameOver) {
+                    requestAnimationFrame(moveLine);
+                } else {
+                    updateGameInfo();
+                }
+            }
+        }
+
+        function stopMoving(player) {
+            if (isMoving && 
+                ((player === 'A' && moveDirection < 0) || 
+                 (player === 'L' && moveDirection > 0))) {
+                isMoving = false;
+                gameInfo.textContent = `${player} stopped the line! Waiting for next move...`;
+                clearTimeout(aiTimeoutId);
+                setTimeout(startMoving, Math.random() * 2000 + 500);
+            }
+        }
+
+        function aiMove() {
+            const randomDelay = Math.random() * 500 + 100; // Random delay between 100ms and 600ms
+            aiTimeoutId = setTimeout(() => {
+                stopMoving('A');
+            }, randomDelay);
+        }
+
+        function updateGameInfo() {
+            if (gameOver) {
+                gameInfo.textContent = `Game Over! ${winner} Wins!`;
+            } else if (isMoving) {
+                if (moveDirection > 0) {
+                    gameInfo.textContent = "Line moving right. Player L, defend!";
+                } else {
+                    gameInfo.textContent = isAIControlled ? "Line moving left. AI is defending!" : "Line moving left. Player A, defend!";
+                }
+            }
+        }
+
+        function restartGame() {
+            linePosition = canvas.width / 2;
+            isMoving = false;
+            gameOver = false;
+            winner = '';
+            gameStarted = false;
+            restartButton.style.display = 'none';
+            clearTimeout(aiTimeoutId);
+            drawGame();
+            gameInfo.textContent = 'Press any letter key to start the game!';
+        }
+
+        function toggleAI() {
+            isAIControlled = !isAIControlled;
+            aiToggle.textContent = isAIControlled ? "Disable AI Player A" : "Enable AI Player A";
+            gameInfo.textContent = isAIControlled ? "AI is now controlling Player A" : "Player A is now human-controlled";
+            gameInfo.textContent += " Press any letter key to start the game!";
+            restartGame();
+        }
+
+        function startGame() {
+            if (!gameStarted) {
+                gameStarted = true;
+                gameInfo.textContent = 'Game started! Get ready...';
+                setTimeout(startMoving, 1000);
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (!gameStarted && event.key.match(/^[a-z]$/i)) {
+                startGame();
+            } else if (gameStarted) {
+                if (!isAIControlled && (event.key === 'a' || event.key === 'A')) {
+                    stopMoving('A');
+                } else if (event.key === 'l' || event.key === 'L') {
+                    stopMoving('L');
+                }
+            }
+        });
+
+        restartButton.addEventListener('click', restartGame);
+        aiToggle.addEventListener('click', toggleAI);
+
+        drawGame();
+        gameInfo.textContent = 'Press any letter key to start the game!';
+    </script>
+</body>
+</html>
